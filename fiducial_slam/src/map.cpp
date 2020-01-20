@@ -232,7 +232,7 @@ bool Map::lookupTransform(const std::string &from, const std::string &to, const 
     geometry_msgs::TransformStamped transform;
 
     try {
-        transform = tfBuffer.lookupTransform(from, to, time);
+        transform = tfBuffer.lookupTransform(from, to, time, ros::Duration(0.5));
 
         tf2::fromMsg(transform.transform, T);
         return true;
