@@ -291,11 +291,11 @@ int Map::updatePose(std::vector<Observation> &obs, const ros::Time &time,
             // TODO: Create variance for each DOF
             // TODO: Take into account position according to odom
             auto cam_f = o.T_camFid.transform.getOrigin();
-            double s1 = std::pow(position.z() / cam_f.z(), 2) *
-                        (std::pow(cam_f.x(), 2) + std::pow(cam_f.y(), 2));
-            double s2 = position.length2() * std::pow(std::sin(roll), 2);
-            double s3 = position.length2() * std::pow(std::sin(pitch), 2);
-            p.variance = s1 + s2 + s3 + systematic_error;
+            //double s1 = std::pow(position.z() / cam_f.z(), 2) *
+                        //(std::pow(cam_f.x(), 2) + std::pow(cam_f.y(), 2));
+            //double s2 = position.length2() * std::pow(std::sin(roll), 2);
+            //double s3 = position.length2() * std::pow(std::sin(pitch), 2);
+            //p.variance = s1 + s2 + s3 + systematic_error;
             o.T_camFid.variance = p.variance;
 
             ROS_INFO("Pose %d %lf %lf %lf %lf %lf %lf %lf", o.fid, position.x(), position.y(),
