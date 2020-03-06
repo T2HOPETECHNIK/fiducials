@@ -87,6 +87,7 @@ Map::Map(ros::NodeHandle &nh) : tfBuffer(ros::Duration(30.0)) {
     isInitializingMap = false;
     havePose = false;
     fiducialToAdd = -1;
+    outlier_count = 0;
 
     listener = make_unique<tf2_ros::TransformListener>(tfBuffer);
 
@@ -166,7 +167,7 @@ void Map::update(std::vector<Observation> &obs, const ros::Time &time) {
         tf2::Stamped<TransformWithVariance> T_mapCam;
         T_mapCam.frame_id_ = mapFrame;
 
-        if (updatePose(obs, time, T_mapCam) > 0 && obs.size() > 1 && !readOnly) {
+        if (updatePose(obs, time, T_mapCam) > 0 && obs.size() >= 1 && !readOnly) {
             updateMap(obs, time, T_mapCam);
         }
     }
@@ -375,6 +376,36 @@ int Map::updatePose(std::vector<Observation> &obs, const ros::Time &time,
         outPose.transform.getBasis().getRPY(roll, pitch, yaw);
         outPose.transform.getBasis().setRPY(0, 0, yaw);
     }
+
+    /*
+     * Do moving average filtering + outlier rejection
+     */
+    tf2::Vector3 latestPosition = outPose.transform.getOrigin();
+    if (!lastPosition)
+    {
+        lastPosition = latestPosition;
+    }
+    else
+    {
+        double distance_moved = (latestPosition - *lastPosition).length();
+        if (distance_moved > MAX_DISTANCE_JUMP)
+        {
+            ROS_WARN("Pose rejected! Distance moved: %f", distance_moved);
+            outlier_count++;
+            if (outlier_count >= MAX_CONSECUTIVE_OUTLIER_COUNT)
+            {
+                lastPosition.reset();
+                ROS_WARN("Max consecutive outliers exceeded, resetting lastPosition");
+            }
+            return 0;
+        }
+        else
+        {
+            latestPosition = LATEST_POSITION_WEIGHT * latestPosition + (1.0 - LATEST_POSITION_WEIGHT) * (*lastPosition);
+            lastPosition = latestPosition;
+        }
+    }
+    outPose.transform.setOrigin(latestPosition);
 
     poseTf = toMsg(outPose);
     poseTf.child_frame_id = outFrame;
