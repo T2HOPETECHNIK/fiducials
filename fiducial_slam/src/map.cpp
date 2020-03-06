@@ -380,32 +380,33 @@ int Map::updatePose(std::vector<Observation> &obs, const ros::Time &time,
     /*
      * Do moving average filtering + outlier rejection
      */
-    tf2::Vector3 latestPosition = outPose.transform.getOrigin();
-    if (!lastPosition)
+    tf2::Transform latestTransform = outPose.transform;
+    if (!lastTransform)
     {
-        lastPosition = latestPosition;
+        lastTransform = latestTransform;
     }
     else
     {
-        double distance_moved = (latestPosition - *lastPosition).length();
+        double distance_moved = (latestTransform.getOrigin() - lastTransform->getOrigin()).length();
         if (distance_moved > MAX_DISTANCE_JUMP)
         {
             ROS_WARN("Pose rejected! Distance moved: %f", distance_moved);
             outlier_count++;
             if (outlier_count >= MAX_CONSECUTIVE_OUTLIER_COUNT)
             {
-                lastPosition.reset();
-                ROS_WARN("Max consecutive outliers exceeded, resetting lastPosition");
+                lastTransform.reset();
+                ROS_WARN("Max consecutive outliers exceeded, resetting lastTransform");
             }
             return 0;
         }
         else
         {
-            latestPosition = LATEST_POSITION_WEIGHT * latestPosition + (1.0 - LATEST_POSITION_WEIGHT) * (*lastPosition);
-            lastPosition = latestPosition;
+            latestTransform.setOrigin(LATEST_TRANFORM_WEIGHT * latestTransform.getOrigin() + (1.0 - LATEST_TRANFORM_WEIGHT) * lastTransform->getOrigin());
+            latestTransform.setRotation(lastTransform->getRotation().slerp(latestTransform.getRotation(), LATEST_TRANFORM_WEIGHT));
+            lastTransform = latestTransform;
         }
     }
-    outPose.transform.setOrigin(latestPosition);
+    outPose.transform = latestTransform;
 
     poseTf = toMsg(outPose);
     poseTf.child_frame_id = outFrame;

@@ -157,11 +157,11 @@ public:
     bool lookupTransform(const std::string &from, const std::string &to, const ros::Time &time,
                          tf2::Transform &T) const;
 
-    boost::optional<tf2::Vector3> lastPosition;
+    boost::optional<tf2::Transform> lastTransform;
     const double MAX_DISTANCE_JUMP = 0.5;
-    const double LATEST_POSITION_WEIGHT = 0.1;
+    const double LATEST_TRANFORM_WEIGHT = 0.1;
     int outlier_count;
-    int MAX_CONSECUTIVE_OUTLIER_COUNT = 5;
+    int MAX_CONSECUTIVE_OUTLIER_COUNT = 10;
 };
 
 #endif
