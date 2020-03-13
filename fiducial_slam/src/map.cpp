@@ -87,6 +87,7 @@ Map::Map(ros::NodeHandle &nh) : tfBuffer(ros::Duration(30.0)) {
     isInitializingMap = false;
     havePose = false;
     fiducialToAdd = -1;
+    outlier_count = 0;
 
     listener = make_unique<tf2_ros::TransformListener>(tfBuffer);
 
@@ -166,7 +167,7 @@ void Map::update(std::vector<Observation> &obs, const ros::Time &time) {
         tf2::Stamped<TransformWithVariance> T_mapCam;
         T_mapCam.frame_id_ = mapFrame;
 
-        if (updatePose(obs, time, T_mapCam) > 0 && obs.size() > 1 && !readOnly) {
+        if (updatePose(obs, time, T_mapCam) > 0 && obs.size() >= 1 && !readOnly) {
             updateMap(obs, time, T_mapCam);
         }
     }
@@ -291,11 +292,11 @@ int Map::updatePose(std::vector<Observation> &obs, const ros::Time &time,
             // TODO: Create variance for each DOF
             // TODO: Take into account position according to odom
             auto cam_f = o.T_camFid.transform.getOrigin();
-            double s1 = std::pow(position.z() / cam_f.z(), 2) *
-                        (std::pow(cam_f.x(), 2) + std::pow(cam_f.y(), 2));
-            double s2 = position.length2() * std::pow(std::sin(roll), 2);
-            double s3 = position.length2() * std::pow(std::sin(pitch), 2);
-            p.variance = s1 + s2 + s3 + systematic_error;
+            //double s1 = std::pow(position.z() / cam_f.z(), 2) *
+                        //(std::pow(cam_f.x(), 2) + std::pow(cam_f.y(), 2));
+            //double s2 = position.length2() * std::pow(std::sin(roll), 2);
+            //double s3 = position.length2() * std::pow(std::sin(pitch), 2);
+            //p.variance = s1 + s2 + s3 + systematic_error;
             o.T_camFid.variance = p.variance;
 
             ROS_INFO("Pose %d %lf %lf %lf %lf %lf %lf %lf", o.fid, position.x(), position.y(),
@@ -375,6 +376,37 @@ int Map::updatePose(std::vector<Observation> &obs, const ros::Time &time,
         outPose.transform.getBasis().getRPY(roll, pitch, yaw);
         outPose.transform.getBasis().setRPY(0, 0, yaw);
     }
+
+    /*
+     * Do moving average filtering + outlier rejection
+     */
+    tf2::Transform latestTransform = outPose.transform;
+    if (!lastTransform)
+    {
+        lastTransform = latestTransform;
+    }
+    else
+    {
+        double distance_moved = (latestTransform.getOrigin() - lastTransform->getOrigin()).length();
+        if (distance_moved > MAX_DISTANCE_JUMP)
+        {
+            ROS_WARN("Pose rejected! Distance moved: %f", distance_moved);
+            outlier_count++;
+            if (outlier_count >= MAX_CONSECUTIVE_OUTLIER_COUNT)
+            {
+                lastTransform.reset();
+                ROS_WARN("Max consecutive outliers exceeded, resetting lastTransform");
+            }
+            return 0;
+        }
+        else
+        {
+            latestTransform.setOrigin(LATEST_TRANFORM_WEIGHT * latestTransform.getOrigin() + (1.0 - LATEST_TRANFORM_WEIGHT) * lastTransform->getOrigin());
+            latestTransform.setRotation(lastTransform->getRotation().slerp(latestTransform.getRotation(), LATEST_TRANFORM_WEIGHT));
+            lastTransform = latestTransform;
+        }
+    }
+    outPose.transform = latestTransform;
 
     poseTf = toMsg(outPose);
     poseTf.child_frame_id = outFrame;
