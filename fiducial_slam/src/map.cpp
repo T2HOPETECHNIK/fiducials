@@ -46,6 +46,7 @@
 
 #include <boost/filesystem.hpp>
 
+#include <tf2_ros/static_transform_broadcaster.h>
 
 static double systematic_error = 0.01;
 
@@ -53,7 +54,7 @@ static double systematic_error = 0.01;
 Observation::Observation(int fid, const tf2::Stamped<TransformWithVariance> &camFid) {
     this->fid = fid;
 
-    tf2_ros::TransformBroadcaster broadcaster;
+    tf2_ros::StaticTransformBroadcaster broadcaster;
     geometry_msgs::TransformStamped ts = toMsg(camFid);
     ts.child_frame_id = "fid" + std::to_string(fid);
     broadcaster.sendTransform(ts);
