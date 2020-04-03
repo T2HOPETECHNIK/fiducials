@@ -390,8 +390,10 @@ int Map::updatePose(std::vector<Observation> &obs, const ros::Time &time,
         double distance_moved = (latestTransform.getOrigin() - lastTransform->getOrigin()).length();
         if (distance_moved > MAX_DISTANCE_JUMP)
         {
-            ROS_WARN("Pose rejected! Distance moved: %f", distance_moved);
             outlier_count++;
+            ROS_WARN("Pose rejected! Distance moved: %f, outlier count: %d",
+                    distance_moved,
+                    outlier_count);
             if (outlier_count >= MAX_CONSECUTIVE_OUTLIER_COUNT)
             {
                 lastTransform.reset();

@@ -159,7 +159,7 @@ public:
 
     boost::optional<tf2::Transform> lastTransform;
     const double MAX_DISTANCE_JUMP = 0.5;
-    const double LATEST_TRANFORM_WEIGHT = 0.05;
+    const double LATEST_TRANFORM_WEIGHT = 0.20;
     int outlier_count;
     int MAX_CONSECUTIVE_OUTLIER_COUNT = 10;
 };
