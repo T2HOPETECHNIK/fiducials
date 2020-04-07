@@ -159,6 +159,7 @@ void Map::update(std::vector<Observation> &obs, const ros::Time &time) {
     frameNum++;
 
     if (obs.size() > 0 && fiducials.size() == 0) {
+        ROS_INFO("Setting isInitializingMap = true");
         isInitializingMap = true;
     }
 
@@ -510,11 +511,8 @@ void Map::autoInit(const std::vector<Observation> &obs, const ros::Time &time) {
         }
     }
 
-    if (frameNum - initialFrameNum > 10 && originFid != -1) {
-        isInitializingMap = false;
-
-        fiducials[originFid].pose.variance = 0.0;
-    }
+    isInitializingMap = false;
+    fiducials[originFid].pose.variance = 0.0;
 }
 
 // Attempt to add the specified fiducial to the map
