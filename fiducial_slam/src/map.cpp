@@ -400,6 +400,7 @@ int Map::updatePose(std::vector<Observation> &obs, const ros::Time &time,
             {
                 lastTransform.reset();
                 ROS_WARN("Max consecutive outliers exceeded, resetting lastTransform");
+                outlier_count = 0;
             }
             return 0;
         }
@@ -408,6 +409,7 @@ int Map::updatePose(std::vector<Observation> &obs, const ros::Time &time,
             latestTransform.setOrigin(LATEST_TRANFORM_WEIGHT * latestTransform.getOrigin() + (1.0 - LATEST_TRANFORM_WEIGHT) * lastTransform->getOrigin());
             latestTransform.setRotation(lastTransform->getRotation().slerp(latestTransform.getRotation(), LATEST_TRANFORM_WEIGHT));
             lastTransform = latestTransform;
+            outlier_count = 0;
         }
     }
     outPose.transform = latestTransform;
@@ -843,6 +845,8 @@ bool Map::clearCallback(std_srvs::Empty::Request &req, std_srvs::Empty::Response
     fiducials.clear();
     initialFrameNum = frameNum;
     originFid = -1;
+    lastTransform.reset();
+    outlier_count = 0;
 
     return true;
 }
