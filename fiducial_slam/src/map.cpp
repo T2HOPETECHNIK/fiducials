@@ -492,8 +492,14 @@ void Map::autoInit(const std::vector<Observation> &obs, const ros::Time &time) {
             T.setData(T_baseCam * T);
         }
 
+        tf2::Transform T_mapBase;
+        if (lookupTransform(mapFrame, baseFrame, ros::Time(0), T_mapBase)) {
+            T.setData(T_mapBase * T);
+        }
+
         fiducials[o.fid] = Fiducial(o.fid, T);
     } else {
+        ROS_ERROR("Should never go here");
         for (const Observation &o : obs) {
             if (o.fid == originFid) {
                 tf2::Stamped<TransformWithVariance> T = o.T_camFid;
