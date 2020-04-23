@@ -262,7 +262,7 @@ int Map::updatePose(std::vector<Observation> &obs, const ros::Time &time,
     if (lookupTransform(obs[0].T_camFid.frame_id_, baseFrame, time, T_camBase.transform)) {
         tf2::Vector3 c = T_camBase.transform.getOrigin();
         ROS_INFO("camera->base   %lf %lf %lf", c.x(), c.y(), c.z());
-        T_camBase.variance = 1.0;
+        T_camBase.variance = 0.0;
     } else {
         ROS_ERROR("Cannot determine tf from camera to robot\n");
     }
@@ -270,7 +270,7 @@ int Map::updatePose(std::vector<Observation> &obs, const ros::Time &time,
     if (lookupTransform(baseFrame, obs[0].T_camFid.frame_id_, time, T_baseCam.transform)) {
         tf2::Vector3 c = T_baseCam.transform.getOrigin();
         ROS_INFO("base->camera   %lf %lf %lf", c.x(), c.y(), c.z());
-        T_baseCam.variance = 1.0;
+        T_baseCam.variance = 0.0;
     } else {
         ROS_ERROR("Cannot determine tf from robot to camera\n");
         return numEsts;
@@ -520,7 +520,7 @@ void Map::autoInit(const std::vector<Observation> &obs, const ros::Time &time) {
     }
 
     isInitializingMap = false;
-    fiducials[originFid].pose.variance = 0.0;
+    fiducials[originFid].pose.variance = 0.001;
 }
 
 // Attempt to add the specified fiducial to the map
