@@ -46,6 +46,7 @@
 
 #include <boost/filesystem.hpp>
 
+#include <tf2_ros/static_transform_broadcaster.h>
 
 static double systematic_error = 0.01;
 
@@ -53,7 +54,7 @@ static double systematic_error = 0.01;
 Observation::Observation(int fid, const tf2::Stamped<TransformWithVariance> &camFid) {
     this->fid = fid;
 
-    tf2_ros::TransformBroadcaster broadcaster;
+    tf2_ros::StaticTransformBroadcaster broadcaster;
     geometry_msgs::TransformStamped ts = toMsg(camFid);
     ts.child_frame_id = "fid" + std::to_string(fid);
     broadcaster.sendTransform(ts);
@@ -158,6 +159,7 @@ void Map::update(std::vector<Observation> &obs, const ros::Time &time) {
     frameNum++;
 
     if (obs.size() > 0 && fiducials.size() == 0) {
+        ROS_INFO("Setting isInitializingMap = true");
         isInitializingMap = true;
     }
 
@@ -260,7 +262,7 @@ int Map::updatePose(std::vector<Observation> &obs, const ros::Time &time,
     if (lookupTransform(obs[0].T_camFid.frame_id_, baseFrame, time, T_camBase.transform)) {
         tf2::Vector3 c = T_camBase.transform.getOrigin();
         ROS_INFO("camera->base   %lf %lf %lf", c.x(), c.y(), c.z());
-        T_camBase.variance = 1.0;
+        T_camBase.variance = 0.0;
     } else {
         ROS_ERROR("Cannot determine tf from camera to robot\n");
     }
@@ -268,7 +270,7 @@ int Map::updatePose(std::vector<Observation> &obs, const ros::Time &time,
     if (lookupTransform(baseFrame, obs[0].T_camFid.frame_id_, time, T_baseCam.transform)) {
         tf2::Vector3 c = T_baseCam.transform.getOrigin();
         ROS_INFO("base->camera   %lf %lf %lf", c.x(), c.y(), c.z());
-        T_baseCam.variance = 1.0;
+        T_baseCam.variance = 0.0;
     } else {
         ROS_ERROR("Cannot determine tf from robot to camera\n");
         return numEsts;
@@ -390,12 +392,15 @@ int Map::updatePose(std::vector<Observation> &obs, const ros::Time &time,
         double distance_moved = (latestTransform.getOrigin() - lastTransform->getOrigin()).length();
         if (distance_moved > MAX_DISTANCE_JUMP)
         {
-            ROS_WARN("Pose rejected! Distance moved: %f", distance_moved);
             outlier_count++;
+            ROS_WARN("Pose rejected! Distance moved: %f, outlier count: %d",
+                    distance_moved,
+                    outlier_count);
             if (outlier_count >= MAX_CONSECUTIVE_OUTLIER_COUNT)
             {
                 lastTransform.reset();
                 ROS_WARN("Max consecutive outliers exceeded, resetting lastTransform");
+                outlier_count = 0;
             }
             return 0;
         }
@@ -404,6 +409,7 @@ int Map::updatePose(std::vector<Observation> &obs, const ros::Time &time,
             latestTransform.setOrigin(LATEST_TRANFORM_WEIGHT * latestTransform.getOrigin() + (1.0 - LATEST_TRANFORM_WEIGHT) * lastTransform->getOrigin());
             latestTransform.setRotation(lastTransform->getRotation().slerp(latestTransform.getRotation(), LATEST_TRANFORM_WEIGHT));
             lastTransform = latestTransform;
+            outlier_count = 0;
         }
     }
     outPose.transform = latestTransform;
@@ -486,8 +492,14 @@ void Map::autoInit(const std::vector<Observation> &obs, const ros::Time &time) {
             T.setData(T_baseCam * T);
         }
 
+        tf2::Transform T_mapBase;
+        if (lookupTransform(mapFrame, baseFrame, ros::Time(0), T_mapBase)) {
+            T.setData(T_mapBase * T);
+        }
+
         fiducials[o.fid] = Fiducial(o.fid, T);
     } else {
+        ROS_ERROR("Should never go here");
         for (const Observation &o : obs) {
             if (o.fid == originFid) {
                 tf2::Stamped<TransformWithVariance> T = o.T_camFid;
@@ -507,11 +519,8 @@ void Map::autoInit(const std::vector<Observation> &obs, const ros::Time &time) {
         }
     }
 
-    if (frameNum - initialFrameNum > 10 && originFid != -1) {
-        isInitializingMap = false;
-
-        fiducials[originFid].pose.variance = 0.0;
-    }
+    isInitializingMap = false;
+    fiducials[originFid].pose.variance = 0.001;
 }
 
 // Attempt to add the specified fiducial to the map
@@ -842,6 +851,8 @@ bool Map::clearCallback(std_srvs::Empty::Request &req, std_srvs::Empty::Response
     fiducials.clear();
     initialFrameNum = frameNum;
     originFid = -1;
+    lastTransform.reset();
+    outlier_count = 0;
 
     return true;
 }
