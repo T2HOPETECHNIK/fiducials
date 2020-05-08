@@ -860,6 +860,7 @@ bool Map::clearCallback(std_srvs::Empty::Request &req, std_srvs::Empty::Response
     outlier_count = 0;
     isInitializingMap = true;
 
+    havePose = false;
     std_msgs::Bool msg;
     msg.data = false;
     readyPub.publish(msg);
