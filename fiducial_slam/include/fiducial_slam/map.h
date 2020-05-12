@@ -99,6 +99,7 @@ public:
     ros::Publisher mapPub;
     ros::Publisher robotPosePub;
     ros::Publisher cameraPosePub;
+    ros::Publisher readyPub;
 
     ros::ServiceServer clearSrv;
     ros::ServiceServer addSrv;

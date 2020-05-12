@@ -38,6 +38,7 @@
 
 #include <std_msgs/ColorRGBA.h>
 #include <std_msgs/String.h>
+#include <std_msgs/Bool.h>
 
 #include <geometry_msgs/Point.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
@@ -100,6 +101,8 @@ Map::Map(ros::NodeHandle &nh) : tfBuffer(ros::Duration(30.0)) {
     markerPub = ros::Publisher(nh.advertise<visualization_msgs::Marker>("/fiducials", 100));
     mapPub = ros::Publisher(nh.advertise<fiducial_msgs::FiducialMapEntryArray>("/fiducial_map", 1));
 
+    readyPub = ros::Publisher(nh.advertise<std_msgs::Bool>("/fiducial_ready", 1, true));
+
     clearSrv = nh.advertiseService("clear_map", &Map::clearCallback, this);
     addSrv = nh.advertiseService("add_fiducial", &Map::addFiducialCallback, this);
 
@@ -146,6 +149,10 @@ Map::Map(ros::NodeHandle &nh) : tfBuffer(ros::Duration(30.0)) {
     } else {
         loadMap();
     }
+
+    std_msgs::Bool msg;
+    msg.data = false;
+    readyPub.publish(msg);
 
     publishMarkers();
 }
@@ -421,6 +428,10 @@ int Map::updatePose(std::vector<Observation> &obs, const ros::Time &time,
     if (publishPoseTf) {
         publishTf();
     }
+
+    std_msgs::Bool msg;
+    msg.data = true;
+    readyPub.publish(msg);
 
     ROS_INFO("Finished frame. Estimates %d\n", numEsts);
     return numEsts;
@@ -847,6 +858,12 @@ bool Map::clearCallback(std_srvs::Empty::Request &req, std_srvs::Empty::Response
     originFid = -1;
     lastTransform.reset();
     outlier_count = 0;
+    isInitializingMap = true;
+
+    havePose = false;
+    std_msgs::Bool msg;
+    msg.data = false;
+    readyPub.publish(msg);
 
     return true;
 }
